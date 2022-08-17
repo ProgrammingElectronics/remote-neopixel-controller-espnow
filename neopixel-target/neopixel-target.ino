@@ -11,13 +11,14 @@ const byte DATA_PIN = 6;  // neo-pixel data pin
 const byte NUM_LEDS = 12;
 CRGB leds[NUM_LEDS];
 
-/* Basic */
-typedef struct neopixel_data {
-  int brightness;
+typedef struct neopixel_data {  
   int hue;
   int saturation;
+  int value;
 } neopixel_data;
 
+// Where incoming data is stored
+neopixel_data data;
 
 
 // Init ESP Now with fallback
@@ -46,14 +47,12 @@ void configDeviceAP() {
 }
 
 
-neopixel_data data;
+
 
 void setup() {
   Serial.begin(115200);
 
   FastLED.addLeds<NEOPIXEL, DATA_PIN>(leds, NUM_LEDS);
-
-
 
   Serial.println("ESPNow/Basic/Slave Example");
   //Set device in AP mode to begin with
@@ -76,20 +75,15 @@ void OnDataRecv(const uint8_t *mac_addr, const uint8_t *dataIn, int data_len) {
 
 
   memcpy(&data, dataIn, sizeof(data));
-  Serial.println("Brightness");
-  Serial.println(data.brightness);
   Serial.println("Hue");
   Serial.println(data.hue);
   Serial.println("Saturation");
   Serial.println(data.saturation);
-  Serial.println("");
+  Serial.println("Value");
+  Serial.println(data.value);
 
-  FastLED.setBrightness(data.brightness);
-
-  for (int i = 0; i < NUM_LEDS; i++) {
-    leds[i] = CHSV(data.hue, data.saturation, 255);
-  }
-
+  //Display LEDS
+  fill_solid(leds, NUM_LEDS, CHSV(data.hue, data.saturation, data.value));
   FastLED.show();
 }
 

@@ -25,6 +25,15 @@ volatile byte encoderStatus = NO_CHANGE;
 const byte NUM_LEDS = 12;
 CRGB leds[NUM_LEDS];
 
+typedef struct neopixel_data {  
+  int hue;
+  int saturation;
+  int value;
+} neopixel_data;
+
+// Where Neopixel data is stored
+neopixel_data data = { 120, 120, 255 };
+
 // Global copy of slave
 esp_now_peer_info_t slave;
 #define CHANNEL 1
@@ -63,7 +72,6 @@ void ICACHE_RAM_ATTR readEncoderStatus() {
   }
 }
 
-
 // Init ESP Now with fallback
 void InitESPNow() {
   WiFi.disconnect();
@@ -74,13 +82,6 @@ void InitESPNow() {
     ESP.restart();
   }
 }
-
-/* Basic */
-typedef struct neopixel_data {
-  int brightness;
-  int hue;
-  int saturation;
-} neopixel_data;
 
 // Scan for slaves in AP mode
 void ScanForSlave() {
@@ -223,9 +224,6 @@ void deletePeer() {
   }
 }
 
-
-neopixel_data data = { 255, 255, 255 };
-
 // send data
 void sendData() {
   const uint8_t *peer_addr = slave.peer_addr;
@@ -265,9 +263,9 @@ void setup() {
   Serial.begin(115200);
 
   FastLED.addLeds<NEOPIXEL, DATA_PIN>(leds, NUM_LEDS);
-  FastLED.setBrightness(84);
+  
   for (int i = 0; i < NUM_LEDS; i++) {
-    leds[i] = CHSV(255, 255, 255);
+    leds[i] = CHSV(data.hue, data.saturation, data.value);
   }
   FastLED.show();
 
