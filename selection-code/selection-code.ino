@@ -60,7 +60,6 @@ void ICACHE_RAM_ATTR readEncoderStatus() {
       position++;
       if (position == 8) {
         count++;
-        //count = count > NUM_LEDS - 1 ? 0 : count;
         position = 4;
         encoderStatus = TURN_CW;
       }
@@ -69,7 +68,6 @@ void ICACHE_RAM_ATTR readEncoderStatus() {
       position--;
       if (position == 0) {
         count--;
-        //count = count < 0 ? NUM_LEDS - 1 : count;
         position = 4;
         encoderStatus = TURN_CCW;
       }
@@ -83,6 +81,15 @@ void debounceRotSwitch() {
   while (!digitalRead(ROTARY_ENC_SWITCH));
   delay(100);
   buttonPressed = false;
+}
+
+/*************************
+
+ ***************************/
+int constrainCount(int tempCount) {
+  tempCount = tempCount > NUM_LEDS - 1 ? 0 : tempCount;
+  tempCount = tempCount < 0 ? NUM_LEDS - 1 : tempCount;
+  return tempCount;
 }
 
 /*******************************
@@ -99,8 +106,11 @@ int setHue(CHSV currentColor) {
 
     if (count != prevCount) {
 
+      count = count > NUM_LEDS - 1 ? 0 : count;
+      count = count < 0 ? NUM_LEDS - 1 : count;
+
       noInterrupts();
-      prevCount = constrain(count,0,NUM_LEDS);
+      prevCount = count;
       interrupts();
 
       for (int i = 0; i < NUM_LEDS; i++)
@@ -132,8 +142,11 @@ int setSaturation(CHSV inColor) {
     // Get Count
     if (count != prevCount) {
 
+      count = count > NUM_LEDS - 1 ? 0 : count;
+      count = count < 0 ? NUM_LEDS - 1 : count;
+
       noInterrupts();
-      prevCount = constrain(count,0,NUM_LEDS);
+      prevCount = count;
       interrupts();
 
       // Display choices
@@ -170,10 +183,13 @@ int setValue(CHSV currentColor) {
     // Get Count
     if (count != prevCount) {
 
+      count = count > NUM_LEDS - 1 ? NUM_LEDS - 1 : count;
+      count = count < 0 ? 0 : count;
+
       noInterrupts();
-      prevCount = constrain(count,0,NUM_LEDS);
+      prevCount = count;
       interrupts();
-   
+
       // Display current brightness
       for (int i = 0; i < NUM_LEDS; i++) {
         leds[i] = CHSV(currentColor.hue, currentColor.saturation, prevCount * INCREMENT);
