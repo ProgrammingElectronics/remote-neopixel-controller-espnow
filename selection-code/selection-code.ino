@@ -1,14 +1,10 @@
 #include <FastLED.h>
-#define SET_HUE 0
-#define SET_SAT 1
-#define SET_VAL 2
 
 //pins
 const byte DATA_PIN = 11; // neo-pixel data pin
 const unsigned int ROTARY_ENC_PIN_A = 33;
 const unsigned int ROTARY_ENC_PIN_B = 34;
 const unsigned int ROTARY_ENC_SWITCH = 21;
-
 
 //Rotary Encoder States
 #define NO_CHANGE 0
@@ -28,9 +24,6 @@ const byte NUM_LEDS = 12;
 CRGB leds[NUM_LEDS];
 
 const int INCREMENT = 255 / NUM_LEDS;
-
-//Timing
-const unsigned long BLINK_INTERVAL = 100;
 
 //Color setting to send
 CHSV colorOut = CHSV(255, 255, 150);
@@ -76,6 +69,10 @@ void ICACHE_RAM_ATTR readEncoderStatus() {
   }
 }
 
+
+/*************************
+Debounce Rot Switch
+ ***************************/
 void debounceRotSwitch() {
   delay(100);
   while (!digitalRead(ROTARY_ENC_SWITCH));
@@ -83,14 +80,7 @@ void debounceRotSwitch() {
   buttonPressed = false;
 }
 
-/*************************
 
- ***************************/
-int constrainCount(int tempCount) {
-  tempCount = tempCount > NUM_LEDS - 1 ? 0 : tempCount;
-  tempCount = tempCount < 0 ? NUM_LEDS - 1 : tempCount;
-  return tempCount;
-}
 
 /*******************************
    Set Hue
@@ -241,7 +231,11 @@ void setup() {
 
 }
 
+
+
+
 void loop() {
+
 
 
 }
