@@ -42,8 +42,6 @@ typedef struct neopixel_data
 // Where Neopixel data is stored
 neopixel_data data = {120, 120, 255};
 
-CHSV colorOut = CHSV(255, 255, 150);
-
 // Flag set in ISR to indicate a button press
 volatile boolean buttonPressed = false;
 
@@ -61,8 +59,7 @@ void buttonPress()
 void debounceRotSwitch()
 {
   delay(100);
-  while (!digitalRead(ROTARY_ENC_SWITCH))
-    ;
+  while (!digitalRead(ROTARY_ENC_SWITCH));
   delay(100);
   buttonPressed = false;
 }
@@ -504,11 +501,7 @@ void setup()
   Serial.begin(115200);
 
   FastLED.addLeds<NEOPIXEL, DATA_PIN>(leds, NUM_LEDS);
-
-  for (int i = 0; i < NUM_LEDS; i++)
-  {
-    leds[i] = CHSV(data.hue, data.saturation, data.value);
-  }
+  fill_solid(leds, NUM_LEDS, CHSV(84, 255, 255));
   FastLED.show();
 
   pinMode(ROTARY_ENC_SWITCH, INPUT_PULLUP);
@@ -532,7 +525,10 @@ void setup()
 
 void loop()
 {
-  // In the loop we scan for slave
+
+  CHSV startColor = CHSV(255, 255, 150);
+    
+  //  In the loop we scan for slave
   ScanForSlave();
   // If Slave is found, it would be populate in `slave` variable
   // We will check if `slave` is defined and then we proceed further
@@ -541,20 +537,18 @@ void loop()
     // `slave` is defined
     // Add slave as peer if it has not been added already
     bool isPaired = manageSlave();
-    if (isPaired && buttonPressed)
+    if (isPaired)
     {
       // pair success or already paired
       // Send data to device
-      int hue = setHue(colorOut);
-      colorOut.hue = hue;
+      int hue_t = setHue(startColor);
+      startColor.hue = hue_t;
 
-      int sat = setSaturation(colorOut);
-      colorOut.saturation = sat;
+      int sat_t = setSaturation(startColor);
+      startColor.saturation = sat_t;
 
-      int val = setValue(colorOut);
-      colorOut.value = val;
-
-      buttonPressed = false;
+      int val = setValue(startColor);
+      startColor.value = val;
     }
     else
     {
@@ -568,5 +562,5 @@ void loop()
   }
 
   // wait for 3seconds to run the logic again
-  delay(3000);
+  // delay(3000);
 }
