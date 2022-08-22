@@ -1,5 +1,20 @@
+#include <FastLED.h>
 #include <esp_now.h>
 #include <WiFi.h>
+
+// pins
+const byte DATA_PIN = 11; // neo-pixel data pin
+
+// LED array
+const byte NUM_LEDS = 12;
+CRGB leds[NUM_LEDS];
+
+// LED Effects
+uint8_t gHue = 255; // rotating "base color" used by many of the patterns
+#define FRAMES_PER_SECOND 120
+
+unsigned long previousMillis = 0;
+unsigned int effectInterval = 20;
 
 // Global copy of receiver
 esp_now_peer_info_t receiver;
@@ -23,8 +38,15 @@ void InitESPNow()
   }
 }
 
+void randomReds()
+{
+  fadeToBlackBy(leds, NUM_LEDS, 20);
+  int pos = random(0, NUM_LEDS);
+  leds[pos] += CHSV(gHue, 255, 255);
+}
+
 // Scan for receivers in AP mode
-void ScanForRXs()
+bool ScanForRXs()
 {
   int8_t scanResults = WiFi.scanNetworks();
   // reset on each scan
@@ -63,7 +85,7 @@ void ScanForRXs()
       if (SSID.indexOf("Slave") == 0)
       {
         // SSID of interest
-        Serial.println("Found a Slave.");
+        Serial.println("Found a Receiver.");
         Serial.print(i + 1);
         Serial.print(": ");
         Serial.print(SSID);
@@ -74,7 +96,7 @@ void ScanForRXs()
         Serial.print(RSSI);
         Serial.print(")");
         Serial.println("");
-        // Get BSSID => Mac Address of the Slave
+        // Get BSSID => Mac Address of the Receiver
         int mac[6];
         if (6 == sscanf(BSSIDstr.c_str(), "%x:%x:%x:%x:%x:%x", &mac[0], &mac[1], &mac[2], &mac[3], &mac[4], &mac[5]))
         {
@@ -88,7 +110,7 @@ void ScanForRXs()
         receiver.encrypt = 0;       // no encryption
 
         receiverFound = 1;
-        // we are planning to have only one slave in this example;
+        // we are planning to have only one receiver in this example;
         // Hence, break after we find one, to be a bit efficient
         break;
       }
@@ -97,22 +119,53 @@ void ScanForRXs()
 
   if (receiverFound)
   {
-    Serial.println("Slave Found, processing..");
+    Serial.println("Receiver Found, processing..");
   }
   else
   {
-    Serial.println("Slave Not Found, trying again.");
+    Serial.println("Receiver Not Found, trying again.");
   }
 
   // clean up ram
   WiFi.scanDelete();
+
+  return receiverFound;
 }
 
-void setup() {
+void setup()
+{
 
+  FastLED.addLeds<NEOPIXEL, DATA_PIN>(leds, NUM_LEDS);
+  fill_solid(leds, NUM_LEDS, CHSV(255, 255, 255)); // solid red
+  FastLED.show();
+
+  WiFi.mode(WIFI_STA);
   InitESPNow();
-  ScanForRXs();
-  
+  fill_solid(leds, NUM_LEDS, CHSV(85, 255, 255)); // solid green -> initialized success
+  FastLED.show();
+
+  while (!ScanForRXs()) // Wait until RX is found
+  {
+    for (int i = 0; i < 255; i++)
+    {
+      randomReds();
+      FastLED.delay(1000 / FRAMES_PER_SECOND);
+      FastLED.show();
+    }
+    
+    fill_solid(leds, NUM_LEDS, CHSV(255, 255, 255)); // solid red
+    FastLED.show();
+
+  };
+
+  Serial.begin(115200);
+  delay(1000);
 }
 
-void loop() {}
+void loop()
+{
+
+  static bool standbye = true;
+  static bool selection = false;
+  static bool scan = false;
+}
