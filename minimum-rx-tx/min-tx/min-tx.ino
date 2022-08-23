@@ -55,6 +55,7 @@ unsigned int effectInterval = 10;
 
 // Global copy of receiver
 esp_now_peer_info_t receiver;
+volatile bool rescan = false;
 
 #define CHANNEL 1
 #define PRINTSCANRESULTS 0
@@ -210,6 +211,13 @@ void pacifica_deepen_colors()
   }
 }
 
+void randomReds()
+{
+  fadeToBlackBy(leds, NUM_LEDS, 20);
+  int pos = random(0, NUM_LEDS);
+  leds[pos] += CHSV(255, 255, 255);
+}
+
 /*******************************
    Set Hue
  *******************************/
@@ -363,15 +371,24 @@ void InitESPNow()
   }
 }
 
-void randomReds()
+void scanMode()
 {
-  fadeToBlackBy(leds, NUM_LEDS, 20);
-  int pos = random(0, NUM_LEDS);
-  leds[pos] += CHSV(255, 255, 255);
+  while (!scanForRXs() || !manageReceiver())
+  {
+    for (int i = 0; i < 255; i++)
+    {
+      randomReds();
+      FastLED.delay(1000 / FRAMES_PER_SECOND);
+      FastLED.show();
+    }
+
+    fill_solid(leds, NUM_LEDS, CRGB::Red);
+    FastLED.show();
+  };
 }
 
 // Scan for receivers in AP mode
-bool ScanForRXs()
+bool scanForRXs()
 {
   int8_t scanResults = WiFi.scanNetworks();
   // reset on each scan
@@ -471,13 +488,13 @@ bool manageReceiver()
     bool exists = esp_now_is_peer_exist(receiver.peer_addr);
     if (exists)
     {
-      // Slave already paired.
+      // Receiver already paired.
       Serial.println("Already Paired");
       return true;
     }
     else
     {
-      // Slave not paired, attempt pair
+      // Receiver not paired, attempt pair
       esp_err_t addStatus = esp_now_add_peer(&receiver);
       if (addStatus == ESP_OK)
       {
@@ -520,7 +537,7 @@ bool manageReceiver()
   }
   else
   {
-    // No slave found to process
+    // No receiver found to process
     Serial.println("No Receiver found to process");
     return false;
   }
@@ -552,35 +569,6 @@ void deletePeer()
   {
     Serial.println("Not sure what happened");
   }
-}
-
-void scanMode()
-{
-  while (!ScanForRXs()) // Wait until RX is found
-  {
-    for (int i = 0; i < 255; i++)
-    {
-      randomReds();
-      FastLED.delay(1000 / FRAMES_PER_SECOND);
-      FastLED.show();
-    }
-
-    fill_solid(leds, NUM_LEDS, CRGB::Red);
-    FastLED.show();
-  };
-
-  while (!manageReceiver()) // Wait until RX is found
-  {
-    for (int i = 0; i < 255; i++)
-    {
-      randomReds();
-      FastLED.delay(1000 / FRAMES_PER_SECOND);
-      FastLED.show();
-    }
-
-    fill_solid(leds, NUM_LEDS, CRGB::Red);
-    FastLED.show();
-  };
 }
 
 // send data
@@ -621,9 +609,15 @@ void sendData()
   }
 }
 
-// callback when data is sent from Master to Slave
+// callback when data is sent from TX to RX
 void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status)
 {
+
+  // Set rescan flag for failed transmission
+  if(status != ESP_NOW_SEND_SUCCESS) {
+      rescan = true;
+  }
+
   char macStr[18];
   snprintf(macStr, sizeof(macStr), "%02x:%02x:%02x:%02x:%02x:%02x",
            mac_addr[0], mac_addr[1], mac_addr[2], mac_addr[3], mac_addr[4], mac_addr[5]);
@@ -662,10 +656,9 @@ void loop()
 
   bool standbye = true;
   bool selection = false;
-  bool scan = false;
 
   // Standbye Mode -> Pacifica Effect
-  if (standbye && currentMillis - previousMillis > effectInterval)
+  if ( standbye && !rescan && currentMillis - previousMillis > effectInterval)
   {
     pacifica_loop();
     FastLED.show();
@@ -680,7 +673,7 @@ void loop()
   }
 
   // Selection Mode
-  if (selection)
+  if (selection && !rescan)
   {
     CHSV startColor = CHSV(255, 255, 150);
 
@@ -696,4 +689,11 @@ void loop()
     standbye = true;
     selection = false;
   }
+
+  //Rescan Mode
+  if(rescan) {
+    scanMode();
+    rescan = false;
+  }
+ 
 }

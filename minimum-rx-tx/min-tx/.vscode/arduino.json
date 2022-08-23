@@ -2,6 +2,6 @@
     "configuration": "PSRAM=disabled,FlashSize=4M,PartitionScheme=default,DebugLevel=none",
     "board": "esp32:esp32:esp32s2usb",
     "programmer": "esp32:esptool",
-    "port": "/dev/tty.usbmodem03",
+    "port": "/dev/tty.usbmodem01",
     "sketch": "min-tx.ino"
 }
