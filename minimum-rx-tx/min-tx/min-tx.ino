@@ -406,8 +406,8 @@ bool ScanForRXs()
         Serial.println("");
       }
       delay(10);
-      // Check if the current device starts with `Slave`
-      if (SSID.indexOf("Slave") == 0)
+      // Check if the current device starts with `RX`
+      if (SSID.indexOf("RX") == 0)
       {
         // SSID of interest
         Serial.println("Found a Receiver.");
