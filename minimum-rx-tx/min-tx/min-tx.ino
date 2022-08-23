@@ -32,13 +32,14 @@ const int INCREMENT = 255 / NUM_LEDS; // Used to split Hue, Sat, and Val into se
 
 typedef struct neopixel_data
 {
+  bool display = true;
   int hue;
   int saturation;
   int value;
 } neopixel_data;
 
 // Where Neopixel data is stored
-neopixel_data data = {120, 120, 255};
+neopixel_data data;// = {1, 120, 120, 255};
 
 CRGBPalette16 pacifica_palette_1 =
     {0x000507, 0x000409, 0x00030B, 0x00030D, 0x000210, 0x000212, 0x000114, 0x000117,
@@ -249,6 +250,7 @@ int setHue(CHSV inColor)
       leds[prevCount] = CHSV(prevCount * INCREMENT, inColor.saturation, 255);
 
       // Update RX
+      data.display = true;
       data.hue = prevCount * INCREMENT;
       data.saturation = inColor.saturation;
       data.value = 255;
@@ -295,6 +297,7 @@ int setSaturation(CHSV inColor)
       leds[prevCount].setHSV(inColor.hue, prevCount * INCREMENT, 255);
 
       // Update RX
+      data.display = true;
       data.hue = inColor.hue;
       data.saturation = prevCount * INCREMENT;
       data.value = 255;
@@ -341,6 +344,7 @@ int setValue(CHSV inColor)
       }
 
       // Update RX
+      data.display = true;
       data.hue = inColor.hue;
       data.saturation = inColor.saturation;
       data.value = prevCount * INCREMENT;
@@ -609,13 +613,24 @@ void sendData()
   }
 }
 
+/**
+ * @brief Send dummy data to trigger callback to check if RX is still connected.  
+ */
+void pingRX() {
+  data.display = false;
+  const uint8_t *peer_addr = receiver.peer_addr;
+  esp_err_t result = esp_now_send(peer_addr, (uint8_t *)&data, sizeof(data));
+  data.display = true;
+}
+
 // callback when data is sent from TX to RX
 void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status)
 {
 
   // Set rescan flag for failed transmission
-  if(status != ESP_NOW_SEND_SUCCESS) {
-      rescan = true;
+  if (status != ESP_NOW_SEND_SUCCESS)
+  {
+    rescan = true;
   }
 
   char macStr[18];
@@ -658,7 +673,7 @@ void loop()
   bool selection = false;
 
   // Standbye Mode -> Pacifica Effect
-  if ( standbye && !rescan && currentMillis - previousMillis > effectInterval)
+  if (standbye && !rescan && currentMillis - previousMillis > effectInterval)
   {
     pacifica_loop();
     FastLED.show();
@@ -670,6 +685,9 @@ void loop()
       standbye = false;
       selection = true;
     }
+    
+    // Check if RX still responding
+    pingRX();
   }
 
   // Selection Mode
@@ -690,10 +708,10 @@ void loop()
     selection = false;
   }
 
-  //Rescan Mode
-  if(rescan) {
+  // Rescan Mode
+  if (rescan)
+  {
     scanMode();
     rescan = false;
   }
- 
 }

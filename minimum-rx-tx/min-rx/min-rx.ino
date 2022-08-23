@@ -4,14 +4,16 @@
 
 #define CHANNEL 1
 
-//pins
-const byte DATA_PIN = 6;  // neo-pixel data pin
+// pins
+const byte DATA_PIN = 6; // neo-pixel data pin
 
 // LED array
 const byte NUM_LEDS = 12;
 CRGB leds[NUM_LEDS];
 
-typedef struct neopixel_data {  
+typedef struct neopixel_data
+{
+  bool display = true;
   int hue;
   int saturation;
   int value;
@@ -21,38 +23,44 @@ typedef struct neopixel_data {
 neopixel_data data;
 
 // Init ESP Now with fallback
-void InitESPNow() {
+void InitESPNow()
+{
   WiFi.disconnect();
-  if (esp_now_init() == ESP_OK) {
+  if (esp_now_init() == ESP_OK)
+  {
     Serial.println("ESPNow Init Success");
-  } else {
+  }
+  else
+  {
     Serial.println("ESPNow Init Failed");
     ESP.restart();
   }
 }
 
 // config AP SSID
-void configDeviceAP() {
+void configDeviceAP()
+{
   const char *SSID = "RX_1";
   bool result = WiFi.softAP(SSID, "RX_1_Password", CHANNEL, 0);
-  if (!result) {
+  if (!result)
+  {
     Serial.println("AP Config failed.");
-  } else {
+  }
+  else
+  {
     Serial.println("AP Config Success. Broadcasting with AP: " + String(SSID));
   }
 }
 
-
-
-
-void setup() {
+void setup()
+{
   Serial.begin(115200);
 
   FastLED.addLeds<NEOPIXEL, DATA_PIN>(leds, NUM_LEDS);
 
   WiFi.mode(WIFI_AP);
   configDeviceAP();
-  
+
   // This is the mac address of the Receiver in AP Mode
   Serial.print("AP MAC: ");
   Serial.println(WiFi.softAPmacAddress());
@@ -63,9 +71,9 @@ void setup() {
   esp_now_register_recv_cb(OnDataRecv);
 }
 
-
 // callback when data is recv from Master
-void OnDataRecv(const uint8_t *mac_addr, const uint8_t *dataIn, int data_len) {
+void OnDataRecv(const uint8_t *mac_addr, const uint8_t *dataIn, int data_len)
+{
 
   memcpy(&data, dataIn, sizeof(data));
   Serial.println("Hue");
@@ -75,10 +83,14 @@ void OnDataRecv(const uint8_t *mac_addr, const uint8_t *dataIn, int data_len) {
   Serial.println("Value");
   Serial.println(data.value);
 
-  //Display LEDS
-  fill_solid(leds, NUM_LEDS, CHSV(data.hue, data.saturation, data.value));
-  FastLED.show();
+  // Display Change on NeoPixels
+  if (data.display)
+  {
+    fill_solid(leds, NUM_LEDS, CHSV(data.hue, data.saturation, data.value));
+    FastLED.show();
+  }
 }
 
-void loop() {
+void loop()
+{
 }
