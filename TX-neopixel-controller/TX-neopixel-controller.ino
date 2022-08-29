@@ -1,10 +1,9 @@
 /**
  * @file TX-neopixel-controller.ino
- * @author your name (michael@programmingelectronics.com)
- * @brief
+ * @author Michael Cheich michael@programmingelectronics.com
+ * @brief Use ESPNOW to adjust neopixel colors
  * @version 0.1
  * @date 2022-08-29
- *
  *
  * A program using the ESPNOW protocol to send neopixel color data from
  * a TX ESP32 to an RX ESP32.

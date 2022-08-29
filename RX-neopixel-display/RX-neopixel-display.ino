@@ -1,3 +1,19 @@
+/**
+ * @file RX-neopixel-display.ino
+ * @author Michael Cheich michael@programmingelectronics.com
+ * @brief Use ESPNOW to adjust neopixel colors
+ * @version 0.1
+ * @date 2022-08-29
+ * 
+ * * A program using the ESPNOW protocol to receive neopixel color data from
+ * an TX ESP32 to an RX ESP32.
+ *
+ * The color selected on the TX decive is tranmsitted and displayed on the RX device.
+ * Like a remote control.
+ *
+ * Notes:
+ *  * ESPNOW connnection functions are based on the ESP32 ESPNOW library example.
+ */
 #include <FastLED.h>
 #include <esp_now.h>
 #include <WiFi.h>
@@ -22,7 +38,10 @@ typedef struct neopixel_data
 // Where incoming data is stored
 neopixel_data data;
 
-// Init ESP Now with fallback
+/**
+ * @brief Init ESP Now with fallback
+ * 
+ */
 void InitESPNow()
 {
   WiFi.disconnect();
@@ -37,7 +56,10 @@ void InitESPNow()
   }
 }
 
-// config AP SSID
+/**
+ * @brief config AP SSID
+ * 
+ */
 void configDeviceAP()
 {
   const char *SSID = "RX_1";
@@ -74,15 +96,8 @@ void setup()
 // callback when data is recv from Master
 void OnDataRecv(const uint8_t *mac_addr, const uint8_t *dataIn, int data_len)
 {
-
   memcpy(&data, dataIn, sizeof(data));
-  Serial.println("Hue");
-  Serial.println(data.hue);
-  Serial.println("Saturation");
-  Serial.println(data.saturation);
-  Serial.println("Value");
-  Serial.println(data.value);
-
+  
   // Display Change on NeoPixels
   if (data.display)
   {
