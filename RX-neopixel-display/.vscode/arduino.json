@@ -3,5 +3,5 @@
     "board": "esp32:esp32:feathers2",
     "programmer": "esp32:esptool",
     "port": "/dev/tty.usbmodem14801",
-    "sketch": "min-rx.ino"
+    "sketch": "RX-neopixel-display.ino"
 }

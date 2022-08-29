@@ -3,5 +3,5 @@
     "board": "esp32:esp32:esp32s2usb",
     "programmer": "esp32:esptool",
     "port": "/dev/tty.usbmodem03",
-    "sketch": "min-tx.ino"
+    "sketch": "TX-neopixel-controller.ino"
 }

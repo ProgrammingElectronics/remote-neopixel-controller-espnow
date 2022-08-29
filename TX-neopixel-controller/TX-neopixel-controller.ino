@@ -1,6 +1,30 @@
+/**
+ * @file TX-neopixel-controller.ino
+ * @author your name (michael@programmingelectronics.com)
+ * @brief
+ * @version 0.1
+ * @date 2022-08-29
+ *
+ *
+ * A program using the ESPNOW protocol to send neopixel color data from
+ * a TX ESP32 to an RX ESP32.
+ *
+ * The color selected on the TX decive is tranmsitted and displayed on the RX device.
+ * Like a remote control.
+ *
+ * Notes:
+ *  * Pacficia effect was borrored directly from the FastLED library examples.
+ *  * ESPNOW connnection functions are based on the ESP32 ESPNOW library example.
+ */
+
 #include <FastLED.h>
 #include <esp_now.h>
 #include <WiFi.h>
+
+// ESPNOW
+#define CHANNEL 1
+#define PRINTSCANRESULTS 0
+#define DELETEBEFOREPAIR 0
 
 // Rotary Encoder States
 #define NO_CHANGE 0
@@ -10,14 +34,14 @@
 // LED Effects
 #define FRAMES_PER_SECOND 120
 
-// pins
+// Pins
 const byte DATA_PIN = 11; // neo-pixel data pin
 const unsigned int ROTARY_ENC_PIN_A = 33;
 const unsigned int ROTARY_ENC_PIN_B = 34;
 const unsigned int ROTARY_ENC_SWITCH = 21;
 
 // Direction     ┌─  ccw  ─┐  N  ┌─  cw  ─┐
-// position       0  1  2  3  4  5  6  7  8
+// Position       0  1  2  3  4  5  6  7  8
 byte aState[] = {3, 2, 0, 1, 3, 2, 0, 1, 3};
 byte lastState = 3;
 volatile int count = 0;
@@ -27,9 +51,9 @@ volatile byte encoderStatus = NO_CHANGE;
 // LED array
 const byte NUM_LEDS = 12;
 CRGB leds[NUM_LEDS];
-
 const int INCREMENT = 255 / NUM_LEDS; // Used to split Hue, Sat, and Val into selectable increments
 
+// Transmitted data structure
 typedef struct neopixel_data
 {
   bool display = true;
@@ -38,9 +62,14 @@ typedef struct neopixel_data
   int value;
 } neopixel_data;
 
-// Where Neopixel data is stored
-neopixel_data data;// = {1, 120, 120, 255};
+// Data sent to RX
+neopixel_data data;
 
+// Global copy of receiver
+esp_now_peer_info_t receiver;
+volatile bool rescan = false;
+
+// Used for Pacifica LED Effect
 CRGBPalette16 pacifica_palette_1 =
     {0x000507, 0x000409, 0x00030B, 0x00030D, 0x000210, 0x000212, 0x000114, 0x000117,
      0x000019, 0x00001C, 0x000026, 0x000031, 0x00003B, 0x000046, 0x14554B, 0x28AA50};
@@ -51,31 +80,26 @@ CRGBPalette16 pacifica_palette_3 =
     {0x000208, 0x00030E, 0x000514, 0x00061A, 0x000820, 0x000927, 0x000B2D, 0x000C33,
      0x000E39, 0x001040, 0x001450, 0x001860, 0x001C70, 0x002080, 0x1040BF, 0x2060FF};
 
+// Effect timing
 unsigned long previousMillis = 0;
-unsigned int effectInterval = 10;
-
-// Global copy of receiver
-esp_now_peer_info_t receiver;
-volatile bool rescan = false;
-
-#define CHANNEL 1
-#define PRINTSCANRESULTS 0
-#define DELETEBEFOREPAIR 0
+const unsigned int effectInterval = 10;
 
 // Flag set in ISR to indicate a button press
 volatile boolean buttonPressed = false;
 
-/************************************************************
-   ISR: Action to take on Rotary Endcode switch press
- ***********************************************************/
+/**
+ * @brief  ISR action to take on Rotary Endcode switch press
+ *
+ */
 void buttonPress()
 {
   buttonPressed = true; // flag that button was pressed
 }
 
-/************************************************************
-  Debounce Rot Switch
- ***********************************************************/
+/**
+ * @brief Debounce Rot Switch
+ *
+ */
 void debounceRotSwitch()
 {
   delay(100);
@@ -85,9 +109,10 @@ void debounceRotSwitch()
   buttonPressed = false;
 }
 
-/************************************************************
-   ISR: Get rotary encoder position
- ***********************************************************/
+/**
+ * @brief ISR to get rotary encoder position
+ *
+ */
 void ICACHE_RAM_ATTR readEncoderStatus()
 {
   byte A_Output = digitalRead(ROTARY_ENC_PIN_A);
@@ -100,7 +125,6 @@ void ICACHE_RAM_ATTR readEncoderStatus()
     if (currState == aState[position + 1])
     {
       position++;
-      // Serial.println(position);
       if (position == 8)
       {
         count++;
@@ -111,7 +135,6 @@ void ICACHE_RAM_ATTR readEncoderStatus()
     else if (currState == aState[position - 1])
     {
       position--;
-      // Serial.println(position);
       if (position == 0)
       {
         count--;
@@ -124,9 +147,7 @@ void ICACHE_RAM_ATTR readEncoderStatus()
   }
 }
 
-/*******************************************************
-  Pacifica effect functions for standbye mode
-*******************************************************/
+/**  Pacifica Effect Functions for standbye mode **/
 void pacifica_loop()
 {
   // Increment the four "color index start" counters, one for each wave layer.
@@ -212,6 +233,11 @@ void pacifica_deepen_colors()
   }
 }
 
+/**
+ * @brief Effect displayed when no RX found.
+ *
+ * Flickering red LEDs
+ */
 void randomReds()
 {
   fadeToBlackBy(leds, NUM_LEDS, 20);
@@ -219,9 +245,12 @@ void randomReds()
   leds[pos] += CHSV(255, 255, 255);
 }
 
-/*******************************
-   Set Hue
- *******************************/
+/**
+ * @brief Set the Hue of the data to send
+ *
+ * @param inColor
+ * @return int
+ */
 int setHue(CHSV inColor)
 {
 
@@ -234,6 +263,7 @@ int setHue(CHSV inColor)
     if (count != prevCount)
     {
 
+      // Constrain count to
       count = count > NUM_LEDS - 1 ? 0 : count;
       count = count < 0 ? NUM_LEDS - 1 : count;
 
@@ -255,7 +285,6 @@ int setHue(CHSV inColor)
       data.saturation = inColor.saturation;
       data.value = 255;
       sendData();
-
       FastLED.show();
     }
   }
@@ -264,9 +293,12 @@ int setHue(CHSV inColor)
   return prevCount * INCREMENT;
 }
 
-/*******************************
-   Set Saturation
- *******************************/
+/**
+ * @brief Set the Saturation of the data to be sent
+ *
+ * @param inColor
+ * @return int
+ */
 int setSaturation(CHSV inColor)
 {
 
@@ -302,7 +334,6 @@ int setSaturation(CHSV inColor)
       data.saturation = prevCount * INCREMENT;
       data.value = 255;
       sendData();
-
       FastLED.show();
     }
   }
@@ -312,9 +343,12 @@ int setSaturation(CHSV inColor)
   return prevCount * INCREMENT;
 }
 
-/*******************************
-   Set Value
- *******************************/
+/**
+ * @brief Set the Value of the data to be sent
+ *
+ * @param inColor
+ * @return int
+ */
 int setValue(CHSV inColor)
 {
 
@@ -349,10 +383,6 @@ int setValue(CHSV inColor)
       data.saturation = inColor.saturation;
       data.value = prevCount * INCREMENT;
       sendData();
-
-      Serial.print("Val -> ");
-      Serial.println(prevCount * INCREMENT);
-
       FastLED.show();
     }
   }
@@ -360,7 +390,10 @@ int setValue(CHSV inColor)
   return prevCount * INCREMENT;
 }
 
-/* Init ESP Now with fallback */
+/**
+ * @brief Init ESP Now with fallback
+ * 
+ */
 void InitESPNow()
 {
   WiFi.disconnect();
@@ -391,7 +424,12 @@ void scanMode()
   };
 }
 
-// Scan for receivers in AP mode
+/**
+ * @brief Scan for receivers in AP mode
+ * 
+ * @return true RX found
+ * @return false RX not found
+ */
 bool scanForRXs()
 {
   int8_t scanResults = WiFi.scanNetworks();
@@ -478,6 +516,12 @@ bool scanForRXs()
   return receiverFound;
 }
 
+/**
+ * @brief Add RX as peer
+ * 
+ * @return true RX paired
+ * @return false RX not paired
+ */
 bool manageReceiver()
 {
   if (receiver.channel == CHANNEL)
@@ -547,6 +591,10 @@ bool manageReceiver()
   }
 }
 
+/**
+ * @brief delete paired RX
+ * 
+ */
 void deletePeer()
 {
   esp_err_t delStatus = esp_now_del_peer(receiver.peer_addr);
@@ -575,11 +623,14 @@ void deletePeer()
   }
 }
 
-// send data
+/**
+ * @brief Send data to RX
+ * 
+ */
 void sendData()
 {
   const uint8_t *peer_addr = receiver.peer_addr;
-  Serial.print("Sending: "); // Serial.println(data);
+  Serial.print("Sending: ");
   esp_err_t result = esp_now_send(peer_addr, (uint8_t *)&data, sizeof(data));
   Serial.print("Send Status: ");
   if (result == ESP_OK)
@@ -614,16 +665,22 @@ void sendData()
 }
 
 /**
- * @brief Send dummy data to trigger callback to check if RX is still connected.  
+ * @brief Send dummy data to trigger callback to check if RX is still connected.
  */
-void pingRX() {
+void pingRX()
+{
   data.display = false;
   const uint8_t *peer_addr = receiver.peer_addr;
   esp_err_t result = esp_now_send(peer_addr, (uint8_t *)&data, sizeof(data));
   data.display = true;
 }
 
-// callback when data is sent from TX to RX
+/**
+ * @brief Callback when data is sent from TX to RX
+ * 
+ * @param mac_addr  -> of peer
+ * @param status    
+ */
 void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status)
 {
 
@@ -672,7 +729,7 @@ void loop()
   bool standbye = true;
   bool selection = false;
 
-  // Standbye Mode -> Pacifica Effect
+  // Standbye Mode when waiting for user input -> Pacifica Effect
   if (standbye && !rescan && currentMillis - previousMillis > effectInterval)
   {
     pacifica_loop();
@@ -685,12 +742,12 @@ void loop()
       standbye = false;
       selection = true;
     }
-    
-    // Check if RX still responding
+
+    // Check if RX still responding (if not then go from standbye to Rescan mode)
     pingRX();
   }
 
-  // Selection Mode
+  // Selection Mode -> Select color to be sent
   if (selection && !rescan)
   {
     CHSV startColor = CHSV(255, 255, 150);
@@ -708,7 +765,7 @@ void loop()
     selection = false;
   }
 
-  // Rescan Mode
+  // Rescan Mode - search for RXs -> Random Red effect
   if (rescan)
   {
     scanMode();
